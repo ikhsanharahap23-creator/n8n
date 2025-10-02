@@ -1,0 +1,578 @@
+{
+  "name": "Asisten AI",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "company-hsse",
+          "mode": "list",
+          "cachedResultName": "company-hsse"
+        },
+        "options": {}
+      },
+      "id": "515de50a-9eb7-432f-a902-7dd86e80f4ef",
+      "name": "Pinecone Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "position": [
+        -240,
+        -1136
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "pineconeApi": {
+          "id": "530PdhDqiDpIrRtv",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "8a90a330-a8c8-4f76-99ab-ef310dec1443",
+      "name": "Embeddings Google Gemini",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "position": [
+        -272,
+        -864
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "d9cJAY9Ap1EeAMyT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "binaryMode": "specificField",
+        "options": {}
+      },
+      "id": "630ca43c-f769-4ba2-bf0c-3fef465988e7",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "position": [
+        -80,
+        -912
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "id": "99ed5b1d-32c5-461c-a714-89c9f2e3dc40",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "position": [
+        -96,
+        -720
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.text || $json.message?.text}}\n",
+        "options": {
+          "systemMessage": "PERAN & LINGKUP\nAnda adalah asisten proyek konstruksi yang ahli di regulasi HSSE Indonesia, manajemen kontrak, dan analisis laporan progres proyek. \nJawaban Anda harus berlandaskan dokumen yang tersedia melalui retrieval (RAG): regulasi (UU/PP/Permen/Permenaker/Permen PUPR/Kepmen), kontrak (Syarat Umum/Khusus, BoQ, spesifikasi), dan laporan progres (harian/mingguan/bulanan, kurva-S, EVM, risiko, issue log).\n\nATURAN DASAR\n1) Grounding: gunakan informasi dari dokumen yang ditemukan oleh retrieval. Jangan mengarang atau menyebut pasal/angka tanpa sumber.\n2) Sitasi wajib bila ada rujukan: tulis [Nama Dokumen, Bagian/Clause/Pasal/Hal/Section/Butir] setelah pernyataan terkait. \n   Contoh: [Permen PUPR 10/2021, Pasal 6] atau [Kontrak EPC-01, GCC 4.1] atau [Laporan Progres Sep-2025, hlm 7].\n3) Jika tidak ada dokumen relevan ditemukan, jawab: **“Tidak ditemukan di dokumen yang tersedia.”**\n   Jika memungkinkan, sebutkan kata kunci yang Anda cari agar pengguna tahu apa yang belum ada (tanpa meminta balasan).\n4) Bahasa: gunakan Bahasa Indonesia formal, ringkas, dan tegas. Gunakan satuan SI.\n5) Jangan menampilkan proses berpikir (chain-of-thought). Tampilkan hanya hasil, perhitungan, dan referensi.\n\nPOLA JAWABAN (pilih sesuai konteks pertanyaan):\nA. Tanya aturan/HSSE/spesifikasi:\n   - \"Ringkasan\": 2–4 kalimat inti jawaban.\n   - \"Dasar & Pasal\": bullet bernomor tiap pasal/ayat/clauses penting + sitasi.\n   - \"Implikasi Praktis\": apa kewajiban, larangan, bukti/rekaman yang harus disiapkan, dan sanksi bila ada.\n\nB. Tanya kontrak:\n   - \"Interpretasi Klausul\": jelaskan maksud klausul yang ditanya + sitasi.\n   - \"Hak & Kewajiban\": untuk Pemberi Kerja vs Kontraktor.\n   - \"Langkah Tindak\": apa yang harus dilakukan agar patuh (form, notifikasi, batas waktu).\n\nC. Analisis laporan progres & rekomendasi tindakan:\n   - Baca metrik seperti: rencana vs realisasi %complete, deviasi jadwal/biaya, SPI=CummEV/CummPV, CPI=CummEV/CummAC, tren kurva-S, bobot pekerjaan kritis.\n   - \"Diagnosis\": 3–6 poin temuan (mis. keterlambatan item kritis, backlog inspeksi, isu pasokan).\n   - \"Rekomendasi Prioritas (1–3)\" berbasis dampak vs upaya; setiap rekomendasi maksimal 2 kalimat dan operasional (mis. percepatan aktivitas di jalur kritis, tambah shift, ubah metode pengecoran, parallel procurement, penjadwalan ulang FAT).\n   - Jika data EVM tersedia, tampilkan SPI/CPI dan taksiran EAC/ETC dengan rumus yang digunakan (tanpa menampilkan langkah pikir panjang).\n\nD. Risiko & HSSE:\n   - Gunakan pendekatan HIRARC sederhana: Bahaya → Konsekuensi → Kemungkinan → Pengendalian (Engineering/Admin/APD).\n   - Rekomendasi harus spesifik lokasi/aktivitas (mis. kerja di ketinggian, pengelasan, penggalian, listrik, crane).\n   - Jika ada pelanggaran dari dokumen, sebutkan klausul/pasal rujukan.\n\nFORMAT KELUARAN DEFAULT (maks 10 bullet agar nyaman di Telegram):\n1) **Jawaban Utama / Ringkasan**\n2) **Dasar Dokumen & Sitasi** (jika ada)\n3) **Temuan Kunci / Metrik** (untuk progres)\n4) **Rekomendasi Prioritas** (maks 3 butir, actionable)\n5) **Catatan** (batasan/kebutuhan data tambahan bila relevan)\n\nATURAN SITASI & KUALITAS\n- Gunakan nama dokumen resmi + bagian yang spesifik. Jika halaman/section tersedia dalam metadata, tampilkan.\n- Jika beberapa dokumen bertentangan, jelaskan perbedaannya secara netral dan dahulukan hierarki regulasi (UU > PP > Permen/Kepmen > Standar Teknis > Kontrak internal).\n- Jangan membuat sitasi palsu. Lebih baik kosong daripada salah.\n\nKESALAMATAN & DISKLAMER\n- Untuk isu keselamatan yang mendesak, sarankan tindakan mitigasi segera (contoh: hentikan pekerjaan, lakukan toolbox meeting, inspeksi peralatan) dengan dasar dokumen bila ada.\n- Anda bukan penasihat hukum; keluaran bersifat informasi teknis/operasional.\n\nKENDALI OUTPUT\n- Jika pertanyaan sangat umum, batasi jawaban ke 5–8 poin terpenting dan akhiri dengan saran kata kunci lanjutan (tanpa mengajukan pertanyaan).\n- Jika konteks dokumen tidak memadai, tampilkan “Tidak ditemukan di dokumen yang tersedia.” dan sebutkan data/informasi apa yang belum ada (mis. “kurva-S mingguan” atau “GCC Sub-Clause 14.x”).\n\n"
+        }
+      },
+      "id": "ccb29622-49b2-4ae2-8b6a-7303a327e3e7",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -512,
+        -320
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "name": "company_documents_tool",
+        "description": "Retrieve information from any company documents"
+      },
+      "id": "28055fad-f012-49e0-ac29-dda7d91f9f5a",
+      "name": "Vector Store Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "position": [
+        -272,
+        -48
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "company-hsse",
+          "mode": "list",
+          "cachedResultName": "company-hsse"
+        },
+        "options": {}
+      },
+      "id": "501bc967-c3a5-4eeb-b31a-dce9f5604fcc",
+      "name": "Pinecone Vector Store (Retrieval)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "position": [
+        -336,
+        112
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "pineconeApi": {
+          "id": "530PdhDqiDpIrRtv",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "c10c95bb-4997-4920-a146-39869f8a45cf",
+      "name": "Embeddings Google Gemini (retrieval)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "position": [
+        -320,
+        256
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "d9cJAY9Ap1EeAMyT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "options": {
+          "fileName": "={{ $json.name }}"
+        }
+      },
+      "id": "c15dbaf3-ca2e-4a9c-b892-b440c5d72c13",
+      "name": "Download File From Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "position": [
+        -464,
+        -1136
+      ],
+      "typeVersion": 3,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "HZfdzx5eZzvsKLkE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1Sh3yEiqT2Nx6EDCfGoXa2ur59JoKgL7c",
+          "mode": "list",
+          "cachedResultName": "AI",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1Sh3yEiqT2Nx6EDCfGoXa2ur59JoKgL7c"
+        },
+        "event": "fileUpdated",
+        "options": {}
+      },
+      "id": "c5de5308-2cd4-451c-bd18-7f2d705e5b5c",
+      "name": "Google Drive File Updated",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "position": [
+        -784,
+        -992
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "HZfdzx5eZzvsKLkE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1Sh3yEiqT2Nx6EDCfGoXa2ur59JoKgL7c",
+          "mode": "list",
+          "cachedResultName": "AI",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1Sh3yEiqT2Nx6EDCfGoXa2ur59JoKgL7c"
+        },
+        "event": "fileCreated",
+        "options": {
+          "fileType": "all"
+        }
+      },
+      "id": "c31a0acb-a312-4df6-bfec-6f83c406e4a1",
+      "name": "Google Drive File Created",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "position": [
+        -784,
+        -1264
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "HZfdzx5eZzvsKLkE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{$json.chatId || $json.chat?.id || $json.message?.chat?.id}}"
+      },
+      "id": "8b5072cb-da01-4aa0-a2ed-34111037580a",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -416,
+        0
+      ],
+      "typeVersion": 1.3,
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b1693864-7cb9-4745-90e1-d38a37aa812b",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        -592,
+        0
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "d9cJAY9Ap1EeAMyT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "6db782d6-4f2a-450c-ba83-4d9cdbc9af9a",
+      "name": "Google Gemini Chat Model (retrieval)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "position": [
+        176,
+        112
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "d9cJAY9Ap1EeAMyT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "b08982e3-9c90-468d-bc3a-067231995ca4",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "position": [
+        -992,
+        -320
+      ],
+      "typeVersion": 1,
+      "webhookId": "3f856132-1de0-4046-a00b-f272a3e9344f",
+      "credentials": {
+        "telegramApi": {
+          "id": "BoynTQNRCbtFIUG8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "chatId",
+              "value": "={{$json.message.chat.id || $json.chat.id || $json.chatId}}"
+            },
+            {
+              "name": "text",
+              "value": "={{$json.message?.text || $json.text}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5a8b44d1-85ae-44f4-9938-3146ae83fecc",
+      "name": "Normalize Telegram Message",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -736,
+        -320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "1fc57e2a-5045-45bf-8f2a-e3d9d9f78f7c",
+      "name": "Merge ChatId + Answer",
+      "type": "n8n-nodes-base.merge",
+      "position": [
+        -176,
+        -304
+      ],
+      "typeVersion": 2,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "b5b180eb-1b43-4051-93de-116b29153968",
+      "name": "Telegram Send",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        48,
+        -304
+      ],
+      "typeVersion": 1,
+      "webhookId": "32c83958-4d86-4bb1-8557-ff1c9901080b",
+      "credentials": {
+        "telegramApi": {
+          "id": "BoynTQNRCbtFIUG8",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge ChatId + Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive File Created": {
+      "main": [
+        [
+          {
+            "node": "Download File From Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive File Updated": {
+      "main": [
+        [
+          {
+            "node": "Download File From Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File From Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store (Retrieval)": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini (retrieval)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store (Retrieval)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model (retrieval)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge ChatId + Answer": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "f27b2c54-1ebf-4800-8bd3-db797da2facf",
+  "meta": {
+    "templateId": "2753",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2179ad5df59d571e9932c84b5dbfdce3ff2af93a309b8944c0d25a98fba6d91b"
+  },
+  "id": "SBWW7ETpL1lyGUoJ",
+  "tags": []
+}
