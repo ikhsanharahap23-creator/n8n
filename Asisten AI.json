@@ -641,8 +641,8 @@
     },
     {
       "parameters": {
-        "jsCode": "// Ambil teks mentah dari node sebelumnya\nlet s = String($json.output ?? $json.text ?? \"\");\n\n// Normalisasi baris\ns = s.replace(/\\r\\n?/g, \"\\n\");\n\n// 1) Hilangkan penanda bold **...** tapi SIMPAN isinya\ns = s.replace(/\\*\\*(.*?)\\*\\*/g, \"$1\");\n\n// 2) Hilangkan bullet di awal baris (*, -, atau •) tapi SIMPAN teksnya\ns = s.replace(/^\\s*[\\*\\-•]\\s+/gm, \"\");\n\n// 3) Rapikan spasi di akhir baris\ns = s.replace(/[ \\t]+$/gm, \"\");\n\n// 4) Hindari terlalu banyak baris kosong berturut-turut\ns = s.replace(/\\n{3,}/g, \"\\n\\n\");\n\n// --- (Opsional) Pecah pesan agar aman dari limit Telegram (4096 char) ---\nconst LIMIT = 3900;  // sedikit di bawah 4096 untuk aman\nconst out = [];\nwhile (s.length > 0) {\n  let chunk = s.slice(0, LIMIT);\n  // usahakan memotong di batas baris agar rapi\n  if (s.length > LIMIT) {\n    const cut = chunk.lastIndexOf(\"\\n\");\n    if (cut > 2000) chunk = chunk.slice(0, cut);\n  }\n  out.push({ text: chunk });\n  s = s.slice(chunk.length);\n}\n\nreturn out.length ? out : [{ text: \"\" }];\n"
-      },
+    "jsCode": "// Ambil teks mentah dari node sebelumnya\nlet s = String($json.output ?? $json.text ?? \"\");\n\n// Normalisasi baris\ns = s.replace(/\\r\\n?/g, \"\\n\");\n\n// 1) Hilangkan penanda bold **...** tapi SIMPAN isinya\ns = s.replace(/\\*\\*(.*?)\\*\\*/g, \"$1\");\n\n// 2) Hilangkan bullet di awal baris (*, -, atau \u2022) tapi SIMPAN teksnya\ns = s.replace(/^\\s*[\\*\\-\u2022]\\s+/gm, \"\");\n\n// 3) Rapikan spasi di akhir baris\ns = s.replace(/[ \\t]+$/gm, \"\");\n\n// 4) Hindari terlalu banyak baris kosong berturut-turut\ns = s.replace(/\\n{3,}/g, \"\\n\\n\");\n\n// --- (Opsional) Pecah pesan agar aman dari limit Telegram (4096 char) ---\nconst LIMIT = 3900;  // sedikit di bawah 4096 untuk aman\nconst out = [];\nwhile (s.length > 0) {\n  let chunk = s.slice(0, LIMIT);\n  // usahakan memotong di batas baris agar rapi\n  if (s.length > LIMIT) {\n    const cut = chunk.lastIndexOf(\"\\n\");\n    if (cut > 2000) chunk = chunk.slice(0, cut);\n  }\n  out.push({ text: chunk });\n  s = s.slice(chunk.length);\n}\n\nreturn out.length ? out : [{ text: \"\" }];\n"
+              },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -651,7 +651,7 @@
       ],
       "id": "58684cb6-4ae1-49be-a3af-413f16b4d321",
       "name": "Code membaguskan jawaban telegram"
-     },
+    },
     {
       "parameters": {
         "httpMethod": "POST",
@@ -718,6 +718,38 @@
       "typeVersion": 2
     },
     {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.chunk }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "file_id",
+                "value": "={{ $json.metadata?.file_id }}"
+              },
+              {
+                "name": "title",
+                "value": "={{ $json.metadata?.title }}"
+              },
+              {
+                "name": "description",
+                "value": "={{ $json.metadata?.description }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5a1b9ec8-a673-4b40-9d72-13d06720a419",
+      "name": "Manual Update Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "position": [
+        -1520,
+        320
+      ],
+      "typeVersion": 1
+    },
+    {
       "parameters": {},
       "id": "02b9613b-2b27-47d7-aa31-d127562e272b",
       "name": "Embeddings Google Gemini (Reembed)",
@@ -742,27 +774,7 @@
           "value": "document",
           "mode": "list",
           "cachedResultName": "document"
-        },
-        "jsonMode": "expressionData",
-        "jsonData": "={{ $json.chunk }}",
-        "options": {
-          "mode": "upsert",
-          "metadata": {
-            "metadataValues": [
-              {
-                "name": "file_id",
-                "value": "={{ $json.metadata?.file_id }}"
-              },
-              {
-                "name": "title",
-                "value": "={{ $json.metadata?.title }}"
-              },
-              {
-                "name": "description",
-                "value": "={{ $json.metadata?.description }}"
-              }
-            ]
-          }
+        
         }
       },
       "id": "674b1c85-c4cd-473e-a0aa-bf35d32ba70f",
@@ -1109,6 +1121,39 @@
           }
         ]
       ]
+      },
+    "Code Manual Update Chunker": {
+      "main": [
+        [
+          {
+            "node": "Manual Update Data Loader",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Update Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store Upsert",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini (Reembed)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store Upsert",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -1122,4 +1167,5 @@
   },
   "id": "JYfuYyyKgCV5VOdW",
   "tags": []
+}
 }
