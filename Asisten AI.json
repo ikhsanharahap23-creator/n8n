@@ -651,6 +651,134 @@
       ],
       "id": "58684cb6-4ae1-49be-a3af-413f16b4d321",
       "name": "Code membaguskan jawaban telegram"
+     },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "supabase/reembed",
+        "authentication": "headerAuth",
+        "options": {
+          "headerAuth": {
+            "name": "x-api-key",
+            "value": "={{ $env.SUPABASE_WEBHOOK_KEY }}"
+          }
+        }
+      },
+      "id": "e8cef74a-2c62-408a-a22b-36c23a3b0a77",
+      "name": "Webhook Supabase Reembed",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -2304,
+        320
+      ],
+      "typeVersion": 1,
+      "webhookId": "c48a838a-15af-429b-9c03-35f221b3d096"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "table": "document",
+        "filters": {
+          "values": [
+            {
+              "field": "id",
+              "operator": "equals",
+              "value": "={{ $json.body.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d9719702-a8e8-4f08-aa17-a4727cdf199b",
+      "name": "Supabase Fetch Document",
+      "type": "n8n-nodes-base.supabase",
+      "position": [
+        -2000,
+        320
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "v7dhh8esNEyAShe8",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----- parameter chunking -----\nconst CHUNK_SIZE = 1000;\nconst CHUNK_OVERLAP = 200;\n\n// Ambil item dari node sebelumnya (Supabase Fetch Document)\nconst inputItems = $input.all();\nlet docItem = (inputItems[0]?.json) || {};\n\n// Pastikan kita punya record dari Supabase\nif (!docItem || Object.keys(docItem).length === 0) {\n  const fromSupabase = $items(\"Supabase Fetch Document\", 0, 0);\n  docItem = (fromSupabase[0]?.json) || {};\n}\n\n// Normalisasi metadata agar selalu tersedia\nconst metadata = {\n  file_id: docItem.file_id ?? docItem.fileId ?? docItem.id ?? null,\n  title: docItem.title ?? docItem.metadata?.title ?? null,\n  description: docItem.description ?? docItem.metadata?.description ?? null,\n};\n\n// Ambil teks konten dengan fallback\nconst rawText = (docItem.text ?? docItem.content ?? docItem.data ?? docItem.body ?? \"\").toString();\n\nif (!rawText.trim()) {\n  return [];\n}\n\nlet remaining = rawText.replace(/\\r\\n/g, \"\\n\");\nconst chunks = [];\n\nwhile (remaining.length > 0) {\n  let splitPoint = remaining.lastIndexOf(\"\\n\\n\", CHUNK_SIZE);\n  if (splitPoint < 0 || splitPoint < CHUNK_SIZE / 2) {\n    splitPoint = Math.min(CHUNK_SIZE, remaining.length);\n  }\n\n  const chunkText = remaining.slice(0, splitPoint).trim();\n\n  chunks.push({\n    json: {\n      chunk: chunkText,\n      metadata,\n    },\n  });\n\n  const startNext = Math.max(0, splitPoint - CHUNK_OVERLAP);\n  remaining = remaining.slice(startNext);\n}\n\nreturn chunks;\n"
+      },
+      "id": "634ff91a-bc00-4b94-876e-e9c02e37bc07",
+      "name": "Code Manual Update Chunker",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -1680,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {},
+      "id": "02b9613b-2b27-47d7-aa31-d127562e272b",
+      "name": "Embeddings Google Gemini (Reembed)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "position": [
+        -1376,
+        320
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "d9cJAY9Ap1EeAMyT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "upsert",
+        "tableName": {
+          "__rl": true,
+          "value": "document",
+          "mode": "list",
+          "cachedResultName": "document"
+        },
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.chunk }}",
+        "options": {
+          "mode": "upsert",
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "file_id",
+                "value": "={{ $json.metadata?.file_id }}"
+              },
+              {
+                "name": "title",
+                "value": "={{ $json.metadata?.title }}"
+              },
+              {
+                "name": "description",
+                "value": "={{ $json.metadata?.description }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "674b1c85-c4cd-473e-a0aa-bf35d32ba70f",
+      "name": "Supabase Vector Store Upsert",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "position": [
+        -1072,
+        320
+      ],
+      "typeVersion": 1.1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "v7dhh8esNEyAShe8",
+          "name": "Supabase account"
+        }
+      }
     }
   ],
   "pinData": {},
